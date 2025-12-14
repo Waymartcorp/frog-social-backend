@@ -1,11 +1,11 @@
 // src/index.ts
 
 import express from "express";
-import cors from "cors"; // Needs: npm install cors @types/cors
+import cors from "cors"; 
 import { randomUUID } from "crypto";
 
 // ---------------------------------------------------------
-// IMPORTANT: Ensure these files actually exist in your project!
+// THESE IMPORTS CONNECT TO YOUR OTHER FILES
 // ---------------------------------------------------------
 import {
   handleNewMessage,
@@ -23,13 +23,13 @@ import { applyDelta } from "../lib/apply_delta";
 const app = express();
 
 // -----------------------------
-// Middleware
+// Middleware (Fixes connection issues)
 // -----------------------------
-app.use(cors()); // Fixes connection issues between frontend/backend
-app.use(express.json()); // Replaces body-parser
+app.use(cors()); 
+app.use(express.json());
 
 // -----------------------------
-// INLINE FROG DEMO HTML
+// INLINE FROG DEMO HTML (Your UI)
 // -----------------------------
 const FROG_DEMO_HTML = `<!doctype html>
 <html lang="en">
@@ -78,9 +78,6 @@ const FROG_DEMO_HTML = `<!doctype html>
       const textInput = document.getElementById("textInput");
       const sendBtn = document.getElementById("sendBtn");
       const newThreadBtn = document.getElementById("newThreadBtn");
-      const summaryBox = document.getElementById("summaryBox");
-      const extractedBox = document.getElementById("extractedBox");
-      const highlightsBox = document.getElementById("highlightsBox");
       
       let currentThreadId = null;
       let localMessages = [];
@@ -163,13 +160,14 @@ app.get("/api/health", (_req, res) => {
 app.post("/api/messages", (req, res) => {
   if (!req.body.content) return res.status(400).json({ error: "No content" });
   
+  const now = new Date();
   const message: ForumMessage = {
     id: randomUUID(),
     userId: req.body.userId || "demo-user",
     facilityId: req.body.facilityId,
     threadId: req.body.threadId || randomUUID(),
     content: req.body.content,
-    createdAt: new Date(),
+    createdAt: now,
   };
 
   const frogCase = handleNewMessage(message);
@@ -261,5 +259,4 @@ const PORT = Number(process.env.PORT) || 4000;
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Frog Social backend listening on http://localhost:${PORT}`);
-  console.log(`➡️  Test the demo at http://localhost:${PORT}/frog-demo`);
 });
