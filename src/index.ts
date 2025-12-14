@@ -1,8 +1,10 @@
 // src/index.ts
+
 import express from "express";
 import bodyParser from "body-parser";
 import { randomUUID } from "crypto";
 import path from "path";
+
 import {
   handleNewMessage,
   listCases,
@@ -11,25 +13,46 @@ import {
   type ForumMessage,
   type ResolutionInput,
 } from "./frogCases";
+
 import { ensureThread, db, addMessage } from "../lib/db";
 import { generateDraftDelta } from "../lib/fake_ai";
 import { applyDelta } from "../lib/apply_delta";
 
 const app = express();
 
-// serve static files from /public (like frog-demo.html)
-app.use(express.static(path.join(__dirname, "..", "public")));
+// Parse JSON bodies
 app.use(bodyParser.json());
 
-// explicit route for the demo page
-app.get("/frog-demo.html", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "public", "frog-demo.html"));
+// -----------------------------
+// Demo page routes
+// -----------------------------
+
+// Use process.cwd() so this works the same with ts-node
+const demoPath = path.join(process.cwd(), "public", "frog-demo.html");
+
+app.get("/", (_req, res) => {
+  res.send("Frog Social backend is running. Try /frog-demo or /frog-demo.html");
 });
 
+app.get("/frog-demo", (_req, res) => {
+  res.sendFile(demoPath);
+});
+
+app.get("/frog-demo.html", (_req, res) => {
+  res.sendFile(demoPath);
+});
+
+// -----------------------------
 // Health check
-app.get("/api/health", (req, res) => {
+// -----------------------------
+
+app.get("/api/health", (_req, res) => {
   res.json({ ok: true, status: "Frog Social backend running" });
 });
+
+// -----------------------------
+// Legacy case + message API
+// -----------------------------
 
 // "Describe a problem" → create message + maybe new case
 app.post("/api/messages", (req, res) => {
@@ -49,7 +72,7 @@ app.post("/api/messages", (req, res) => {
 });
 
 // List cases
-app.get("/api/cases", (req, res) => {
+app.get("/api/cases", (_req, res) => {
   const cases = listCases();
   res.json(cases);
 });
@@ -75,13 +98,15 @@ app.post("/api/cases/:id/resolution", (req, res) => {
   res.json(updated);
 });
 
-// --- Frog Social core API ---
+// -----------------------------
+// Frog Social thread/draft API
+// -----------------------------
 
-// Create or return a thread
-app.post("/api/thread", (req, res) => {
+// Create a thread (or return a new one) – returns both threadId and thread
+app.post("/api/thread", (_req, res) => {
   const threadId = ensureThread();
   const thread = db.threads.get(threadId)!;
-  res.json(thread);
+  res.status(201).json({ threadId, thread });
 });
 
 // Post a message to a thread and update the live draft
@@ -94,9 +119,12 @@ app.post("/api/thread/:threadId/message", (req, res) => {
     return res.status(400).json({ error: "Empty message" });
   }
 
+  // store the message in our in-memory DB
   const msg = addMessage(threadId, String(author), trimmed);
 
   const draftState = db.drafts.get(threadId)!;
+
+  // generate a delta using your fake_ai module
   const delta = generateDraftDelta(threadId, msg, {
     revision: draftState.revision,
     doc: draftState.doc,
@@ -107,7 +135,7 @@ app.post("/api/thread/:threadId/message", (req, res) => {
   draftState.doc = nextDoc;
   draftState.deltas.push(delta);
 
-  res.json({
+  res.status(201).json({
     message: msg,
     delta,
     draft: nextDoc,
@@ -127,15 +155,18 @@ app.get("/api/thread/:threadId/draft", (req, res) => {
   });
 });
 
-// --- Start the HTTP server ---
+// -----------------------------
+// Start the HTTP server
+// -----------------------------
+
 const PORT = Number(process.env.PORT) || 4000;
 
 app.listen(PORT, () => {
   console.log(`Frog Social backend listening on port ${PORT}`);
 });
 
-// Keep Node's event loop alive even if something strange happens.
-// (We can remove this once everything is stable.)
+// Keep Node alive even if something odd happens with listeners.
+// We can remove this later once everything is stable.
 setInterval(() => {
   // no-op
 }, 1_000_000_000);
