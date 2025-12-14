@@ -5,7 +5,7 @@ import cors from "cors";
 import { randomUUID } from "crypto";
 
 // ---------------------------------------------------------
-// THESE IMPORTS CONNECT TO YOUR OTHER FILES
+// LOGIC IMPORTS (Connected to your lib files)
 // ---------------------------------------------------------
 import {
   handleNewMessage,
@@ -23,13 +23,13 @@ import { applyDelta } from "../lib/apply_delta";
 const app = express();
 
 // -----------------------------
-// Middleware (Fixes connection issues)
+// Middleware
 // -----------------------------
 app.use(cors()); 
 app.use(express.json());
 
 // -----------------------------
-// INLINE FROG DEMO HTML (Your UI)
+// INLINE FROG DEMO HTML
 // -----------------------------
 const FROG_DEMO_HTML = `<!doctype html>
 <html lang="en">
