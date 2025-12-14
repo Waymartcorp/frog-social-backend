@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 
-// Initialize OpenAI with the key from environment variables
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -13,45 +12,52 @@ interface DraftDoc {
 
 export async function generateDraftDelta(
   threadId: string,
-  newMessage: { author: string; text: string },
+  newMessage: { author: string; text: string; imageUrl?: string }, // <--- Added imageUrl
   currentDraft: { revision: number; doc: DraftDoc }
 ) {
-  // 1. "Husbandry First" Philosophy Prompt
   const systemPrompt = `
     You are an expert herpetologist and veterinary AI assistant for 'Frog Social'.
     
     YOUR PRIME DIRECTIVE:
-    1.  **Environment First:** You MUST assume 90% of health issues are caused by incorrect husbandry (Temperature, Humidity, Water Quality, Diet).
-    2.  **Verify Parameters:** Before suggesting medication or pathogens, you must aggressively verify the user's environmental parameters. If they are missing, list them as "MISSING DATA".
-    3.  **The "Banana" Goal:** Your goal is to gather data to eventually help an image-analysis AI diagnose the frog.
+    1.  **Environment First:** Assume 90% of issues are husbandry-related (Temp, Humidity, Water).
+    2.  **Visual Analysis:** If an image is provided, analyze it for physical signs: bloating (edema), redness (erythema), wounds, or abnormal posture.
+    3.  **Missing Data:** Aggressively flag missing environmental parameters.
 
     Output JSON ONLY. Format:
     {
-      "summary": "Current medical summary of the situation",
+      "summary": "Medical summary including visual findings if any.",
       "extracted": {
-        "symptoms": ["list", "of", "symptoms"],
-        "parameters": {"temp": "value", "ph": "value", "ammonia": "value"},
-        "species": "frog species if known",
-        "potential_causes": ["List environmental causes first"]
+        "visual_findings": ["List what you see in the photo"],
+        "symptoms": ["List symptoms from text"],
+        "parameters": {"temp": "value", "humidity": "value"},
+        "species": "species",
+        "potential_causes": ["Environmental first, then Pathogens"]
       },
-      "highlights": ["Critical alert 1", "Advice 1"]
+      "highlights": ["Critical visual alerts", "Advice"]
     }
   `;
 
-  const userContent = `
-    Current Summary: ${currentDraft.doc.summary}
-    New Message from ${newMessage.author}: "${newMessage.text}"
-    
-    Update the summary and extracted data based on this new information.
-  `;
+  // Build the message content (Text + Optional Image)
+  const userMessageContent: any[] = [
+    { type: "text", text: `Current Summary: ${currentDraft.doc.summary}\nNew Message from ${newMessage.author}: "${newMessage.text}"` }
+  ];
+
+  if (newMessage.imageUrl) {
+    userMessageContent.push({
+      type: "image_url",
+      image_url: { url: newMessage.imageUrl }
+    });
+  }
 
   try {
-    // 2. Call OpenAI (Using gpt-3.5-turbo for reliability/speed)
+    // Note: We use gpt-4o here because it has the best VISION. 
+    // If your account is still restricted, it might fail (404), 
+    // but gpt-4o is required for images. gpt-3.5 CANNOT see images.
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo", 
+      model: "gpt-4o", 
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
+        { role: "user", content: userMessageContent },
       ],
       response_format: { type: "json_object" }, 
     });
@@ -59,7 +65,6 @@ export async function generateDraftDelta(
     const content = response.choices[0].message.content;
     const parsed = JSON.parse(content || "{}");
 
-    // 3. Success: Return the new data
     return {
       draft_revision: currentDraft.revision + 1,
       ...parsed, 
@@ -67,17 +72,11 @@ export async function generateDraftDelta(
 
   } catch (error: any) {
     console.error("OpenAI Error:", error);
-
-    // 4. DEBUG MODE: If it fails, send the error to the frontend!
     return {
       draft_revision: currentDraft.revision,
-      summary: "⚠️ AI CONNECTION ERROR",
-      extracted: {
-        error_type: error.name || "Unknown Error",
-        error_message: error.message || "No message provided",
-        suggestion: "Check Render Logs or OpenAI Billing",
-      },
-      highlights: ["System Error", "Check OpenAI Key"],
+      summary: "⚠️ AI ERROR",
+      extracted: { error: error.message, hint: "Did you use GPT-4o? GPT-3.5 cannot see images." },
+      highlights: ["Check Logs"],
     };
   }
 }
