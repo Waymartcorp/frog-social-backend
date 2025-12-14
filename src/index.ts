@@ -128,7 +128,11 @@ app.get("/api/thread/:threadId/draft", (req, res) => {
   });
 });
 
+// --- Start the HTTP server ---
+const PORT = process.env.PORT || 4000;
+
 app.listen(PORT, () => {
   console.log(`Frog Social backend listening on port ${PORT}`);
 });
+
 
