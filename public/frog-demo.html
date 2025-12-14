@@ -108,5 +108,107 @@
         </div>
 
         <div>
-          <div style="font-size: 12px; opacity:
+          <div style="font-size: 12px; opacity: 0.7">Highlights</div>
+          <div id="highlightsBox" class="msg">—</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const threadIdSpan = document.getElementById("threadId");
+      const messagesDiv = document.getElementById("messages");
+      const authorInput = document.getElementById("authorInput");
+      const textInput = document.getElementById("textInput");
+      const sendBtn = document.getElementById("sendBtn");
+      const newThreadBtn = document.getElementById("newThreadBtn");
+
+      const summaryBox = document.getElementById("summaryBox");
+      const extractedBox = document.getElementById("extractedBox");
+      const highlightsBox = document.getElementById("highlightsBox");
+
+      let currentThreadId = null;
+      let localMessages = [];
+
+      function renderMessages() {
+        messagesDiv.innerHTML = "";
+        for (const msg of localMessages) {
+          const div = document.createElement("div");
+          div.className = "msg";
+          div.textContent = `[${msg.author}] ${msg.text}`;
+          messagesDiv.appendChild(div);
+        }
+      }
+
+      async function createThread() {
+        const res = await fetch("/api/thread", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        currentThreadId = data.threadId || data.thread_id || data.id;
+        if (!currentThreadId && data.thread && data.thread.id) {
+          currentThreadId = data.thread.id;
+        }
+        threadIdSpan.textContent = currentThreadId || "unknown";
+        localMessages = [];
+        renderMessages();
+        summaryBox.textContent = "—";
+        extractedBox.textContent = "{}";
+        highlightsBox.textContent = "—";
+      }
+
+      async function sendMessage() {
+        if (!currentThreadId) {
+          await createThread();
+        }
+        const author = authorInput.value || "anon";
+        const text = textInput.value || "";
+        if (!text.trim()) return;
+
+        localMessages.push({ author, text });
+        renderMessages();
+        textInput.value = "";
+
+        const res = await fetch(`/api/thread/${currentThreadId}/message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ author, text }),
+        });
+
+        if (!res.ok) {
+          console.error("Message error", await res.text());
+          return;
+        }
+
+        const data = await res.json();
+        const draft = data.draft || {};
+        summaryBox.textContent = draft.summary || "—";
+        extractedBox.textContent = JSON.stringify(
+          draft.extracted || {},
+          null,
+          2
+        );
+
+        if (draft.highlights && Array.isArray(draft.highlights)) {
+          highlightsBox.textContent = draft.highlights.join(" | ");
+        } else {
+          highlightsBox.textContent = "—";
+        }
+      }
+
+      newThreadBtn.addEventListener("click", createThread);
+      sendBtn.addEventListener("click", sendMessage);
+      textInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      // Auto-create a thread on load
+      createThread().catch((err) => console.error(err));
+    </script>
+  </body>
+</html>
 
