@@ -75,7 +75,6 @@ app.post("/api/cases/:id/resolution", (req, res) => {
   res.json(updated);
 });
 
-const PORT = process.env.PORT || 4000;
 // --- Frog Social core API ---
 
 // Create or return a thread
