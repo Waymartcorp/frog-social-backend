@@ -1,8 +1,8 @@
 // src/index.ts
-
 import express from "express";
 import bodyParser from "body-parser";
 import { randomUUID } from "crypto";
+import path from "path";
 import {
   handleNewMessage,
   listCases,
@@ -14,10 +14,11 @@ import {
 import { ensureThread, db, addMessage } from "../lib/db";
 import { generateDraftDelta } from "../lib/fake_ai";
 import { applyDelta } from "../lib/apply_delta";
+
 const app = express();
 
 // serve static files from /public (like frog-demo.html)
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 app.use(bodyParser.json());
 
