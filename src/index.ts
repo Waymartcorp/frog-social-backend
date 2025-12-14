@@ -20,8 +20,12 @@ import { applyDelta } from "../lib/apply_delta";
 
 const app = express();
 
-// Parse JSON bodies
+// Serve everything in /public (frog-demo.html, etc.)
+app.use(express.static(path.join(process.cwd(), "public")));
+
+// Parse JSON bodies for API routes
 app.use(bodyParser.json());
+
 
 // -----------------------------
 // Demo page routes
