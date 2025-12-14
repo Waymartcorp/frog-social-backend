@@ -11,6 +11,9 @@ import {
   type ForumMessage,
   type ResolutionInput,
 } from "./frogCases";
+import { ensureThread, db, addMessage } from "../lib/db";
+import { generateDraftDelta } from "../lib/fake_ai";
+import { applyDelta } from "../lib/apply_delta";
 
 const app = express();
 app.use(bodyParser.json());
@@ -65,6 +68,58 @@ app.post("/api/cases/:id/resolution", (req, res) => {
 });
 
 const PORT = process.env.PORT || 4000;
+// --- Frog Social core API ---
+
+// Create or return a thread
+app.post("/api/thread", (req, res) => {
+  const threadId = ensureThread();
+  const thread = db.threads.get(threadId)!;
+  res.json(thread);
+});
+
+// Post a message to a thread and update the live draft
+app.post("/api/thread/:threadId/message", (req, res) => {
+  const threadId = ensureThread(req.params.threadId);
+  const { author = "anon", text = "" } = req.body ?? {};
+
+  const trimmed = String(text).trim();
+  if (!trimmed) {
+    return res.status(400).json({ error: "Empty message" });
+  }
+
+  const msg = addMessage(threadId, String(author), trimmed);
+
+  const draftState = db.drafts.get(threadId)!;
+  const delta = generateDraftDelta(threadId, msg, {
+    revision: draftState.revision,
+    doc: draftState.doc,
+  });
+
+  const nextDoc = applyDelta(draftState.doc, delta);
+  draftState.revision = delta.draft_revision;
+  draftState.doc = nextDoc;
+  draftState.deltas.push(delta);
+
+  res.json({
+    message: msg,
+    delta,
+    draft: nextDoc,
+  });
+});
+
+// Get the current live draft for a thread
+app.get("/api/thread/:threadId/draft", (req, res) => {
+  const threadId = ensureThread(req.params.threadId);
+  const draft = db.drafts.get(threadId)!;
+
+  res.json({
+    thread_id: threadId,
+    revision: draft.revision,
+    doc: draft.doc,
+    recent_deltas: draft.deltas.slice(-10),
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Frog Social backend listening on port ${PORT}`);
 });
