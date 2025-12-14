@@ -2,22 +2,27 @@ import express from "express";
 import cors from "cors"; 
 import { randomUUID } from "crypto";
 import { ensureThread, db, addMessage } from "../lib/db";
+// We import the new Multi-Agent Brain
 import { generateDraftDelta } from "../lib/real_ai"; 
 
 const app = express();
 
 app.use(cors()); 
-app.use(express.json({ limit: '10mb' })); // Allow larger payloads for images
+// INCREASED LIMIT: We need 50mb to allow sending photos!
+app.use(express.json({ limit: '50mb' })); 
 
+// ---------------------------------------------------------
+// THE FRONTEND (UI)
+// ---------------------------------------------------------
 const FROG_DEMO_HTML = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Frog Social – Vision Demo</title>
+    <title>Frog Social – Banana Pro Integration</title>
     <style>
       body { font-family: system-ui, sans-serif; margin: 16px; background: #f0f2f5; }
       .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 1000px; margin: 0 auto; }
-      .card { background: #fff; border-radius: 12px; padding: 16px; border: 1px solid #ddd; shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .card { background: #fff; border-radius: 12px; padding: 16px; border: 1px solid #ddd; }
       .msg { background: #f6f6f6; border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 14px; }
       .controls { display: flex; gap: 8px; margin-top: 10px; }
       input, button { padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
@@ -28,10 +33,10 @@ const FROG_DEMO_HTML = `<!doctype html>
     </style>
   </head>
   <body>
-    <h1 style="text-align:center">🐸 Frog Social: Vision Demo</h1>
+    <h1 style="text-align:center">🐸 Frog Social + 🍌 Banana Pro</h1>
     <div class="layout">
       <div class="card">
-        <h2>Chat & Upload</h2>
+        <h2>Thread</h2>
         <div style="font-size: 12px; opacity: 0.7; margin-bottom: 10px">Thread ID: <span id="threadId">...</span></div>
         <div id="messages" style="height: 300px; overflow-y: auto; border: 1px solid #eee; padding: 10px; border-radius: 8px; margin-bottom: 10px;"></div>
         
@@ -70,6 +75,7 @@ const FROG_DEMO_HTML = `<!doctype html>
         threadIdSpan.textContent = currentThreadId;
       }
 
+      // Convert image file to Base64 string so we can send it as text
       function convertToBase64(file) {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -86,10 +92,10 @@ const FROG_DEMO_HTML = `<!doctype html>
         const file = fileInput.files[0];
         let imageUrl = null;
 
-        // Show local preview immediately
+        // 1. Show local preview immediately
         const msgDiv = document.createElement("div");
         msgDiv.className = "msg";
-        let content = "<strong>User:</strong> " + text;
+        let content = "<strong>User:</strong> " + (text || "(Image Only)");
         
         if (file) {
            imageUrl = await convertToBase64(file);
@@ -102,20 +108,24 @@ const FROG_DEMO_HTML = `<!doctype html>
         textInput.value = "";
         fileInput.value = "";
 
-        // Send to Server
-        extractedBox.textContent = "AI is thinking (analyzing image)...";
+        // 2. Send to Server
+        extractedBox.textContent = "🍌 Banana Pro is analyzing pixels...";
         
-        const res = await fetch("/api/thread/" + currentThreadId + "/message", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ author: "User", text, imageUrl }),
-        });
+        try {
+          const res = await fetch("/api/thread/" + currentThreadId + "/message", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ author: "User", text, imageUrl }),
+          });
 
-        const data = await res.json();
-        const draft = data.draft || {};
-        
-        summaryBox.textContent = draft.summary || "No summary";
-        extractedBox.textContent = JSON.stringify(draft.extracted || {}, null, 2);
+          const data = await res.json();
+          const draft = data.draft || {};
+          
+          summaryBox.textContent = draft.summary || "No summary";
+          extractedBox.textContent = JSON.stringify(draft.extracted || {}, null, 2);
+        } catch (e) {
+          extractedBox.textContent = "Error: " + e.message;
+        }
       }
       
       createThread();
@@ -123,6 +133,17 @@ const FROG_DEMO_HTML = `<!doctype html>
   </body>
 </html>`;
 
+// ---------------------------------------------------------
+// SERVER ROUTES
+// ---------------------------------------------------------
+
+// --- 1. THE REDIRECT FIX ---
+// If you visit the homepage "/", go straight to the demo
+app.get("/", (req, res) => {
+  res.redirect("/frog-demo");
+});
+
+// --- 2. SERVE THE DEMO ---
 app.get(["/frog-demo", "/frog-demo.html"], (req, res) => res.send(FROG_DEMO_HTML));
 
 app.post("/api/thread", (req, res) => {
@@ -135,11 +156,11 @@ app.post("/api/thread/:threadId/message", async (req, res) => {
     const threadId = ensureThread(req.params.threadId);
     const { author, text, imageUrl } = req.body;
     
-    // Save message (we don't save the huge image string in DB for this demo, just text)
+    // Save message (Note: We are not saving the Base64 image in the simple DB to keep it light)
     const msg = addMessage(threadId, author, text); 
     const draftState = db.drafts.get(threadId);
 
-    // Pass image to AI
+    // CALL THE NEW BRAIN (With Banana Pro support)
     const aiResult = await generateDraftDelta(threadId, { ...msg, imageUrl }, {
       revision: draftState.revision,
       doc: draftState.doc,
