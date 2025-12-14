@@ -255,3 +255,25 @@ app.post("/api/thread/:threadId/message", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+app.get("/api/thread/:threadId/draft", (req, res) => {
+  const threadId = ensureThread(req.params.threadId);
+  const draft = db.drafts.get(threadId);
+  if (!draft) return res.status(404).json({ error: "Draft not found" });
+
+  res.json({
+    thread_id: threadId,
+    revision: draft.revision,
+    doc: draft.doc,
+    recent_deltas: draft.deltas.slice(-10),
+  });
+});
+
+// -----------------------------
+// Start Server
+// -----------------------------
+const PORT = Number(process.env.PORT) || 4000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Frog Social backend listening on http://localhost:${PORT}`);
+});
