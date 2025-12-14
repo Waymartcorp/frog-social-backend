@@ -209,20 +209,26 @@ app.post("/api/thread", (_req, res) => {
   }
 });
 
-app.post("/api/thread/:threadId/message", (req, res) => {
+// Post a message to a thread and update the live draft
+app.post("/api/thread/:threadId/message", async (req, res) => { // <--- ADDED 'async'
   try {
     const threadId = ensureThread(req.params.threadId);
     const { author = "anon", text = "" } = req.body ?? {};
     const trimmed = String(text).trim();
 
-    if (!trimmed) return res.status(400).json({ error: "Empty message" });
+    if (!trimmed) {
+      return res.status(400).json({ error: "Empty message" });
+    }
 
     const msg = addMessage(threadId, String(author), trimmed);
     const draftState = db.drafts.get(threadId);
 
-    if (!draftState) return res.status(404).json({ error: "Draft state missing" });
+    if (!draftState) {
+        return res.status(404).json({ error: "Draft state missing" });
+    }
 
-    const delta = generateDraftDelta(threadId, msg, {
+    // <--- ADDED 'await' BELOW
+    const delta = await generateDraftDelta(threadId, msg, {
       revision: draftState.revision,
       doc: draftState.doc,
     });
@@ -232,10 +238,16 @@ app.post("/api/thread/:threadId/message", (req, res) => {
     draftState.doc = nextDoc;
     draftState.deltas.push(delta);
 
-    res.status(201).json({ message: msg, delta, draft: nextDoc });
+    res.json({
+      message: msg,
+      delta,
+      draft: nextDoc,
+    });
   } catch (err: any) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
   }
 });
 
