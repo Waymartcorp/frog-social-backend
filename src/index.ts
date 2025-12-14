@@ -14,7 +14,6 @@ import {
 import { ensureThread, db, addMessage } from "../lib/db";
 import { generateDraftDelta } from "../lib/fake_ai";
 import { applyDelta } from "../lib/apply_delta";
-
 const app = express();
 
 // serve static files from /public (like frog-demo.html)
