@@ -65,4 +65,71 @@ app.get("/api/cases/:id", (req, res) => {
 app.post("/api/cases/:id/resolution", (req, res) => {
   const input: ResolutionInput = {
     caseId: req.params.id,
-    userId: re
+    userId: req.body.userId || "demo-user",
+    outcome: req.body.outcome,
+    freeText: req.body.freeText,
+  };
+
+  const updated = submitCaseResolution(input);
+  if (!updated) return res.status(404).json({ error: "Case not found" });
+  res.json(updated);
+});
+
+// --- Frog Social core API ---
+
+// Create or return a thread
+app.post("/api/thread", (req, res) => {
+  const threadId = ensureThread();
+  const thread = db.threads.get(threadId)!;
+  res.json(thread);
+});
+
+// Post a message to a thread and update the live draft
+app.post("/api/thread/:threadId/message", (req, res) => {
+  const threadId = ensureThread(req.params.threadId);
+  const { author = "anon", text = "" } = req.body ?? {};
+
+  const trimmed = String(text).trim();
+  if (!trimmed) {
+    return res.status(400).json({ error: "Empty message" });
+  }
+
+  const msg = addMessage(threadId, String(author), trimmed);
+
+  const draftState = db.drafts.get(threadId)!;
+  const delta = generateDraftDelta(threadId, msg, {
+    revision: draftState.revision,
+    doc: draftState.doc,
+  });
+
+  const nextDoc = applyDelta(draftState.doc, delta);
+  draftState.revision = delta.draft_revision;
+  draftState.doc = nextDoc;
+  draftState.deltas.push(delta);
+
+  res.json({
+    message: msg,
+    delta,
+    draft: nextDoc,
+  });
+});
+
+// Get the current live draft for a thread
+app.get("/api/thread/:threadId/draft", (req, res) => {
+  const threadId = ensureThread(req.params.threadId);
+  const draft = db.drafts.get(threadId)!;
+
+  res.json({
+    thread_id: threadId,
+    revision: draft.revision,
+    doc: draft.doc,
+    recent_deltas: draft.deltas.slice(-10),
+  });
+});
+
+// --- Start the HTTP server ---
+const PORT = process.env.PORT || 4000;
+
+app.listen(PORT, () => {
+  console.log(`Frog Social backend listening on port ${PORT}`);
+});
