@@ -1,10 +1,6 @@
 // src/index.ts
 import express from "express";
 import bodyParser from "body-parser";
-app.get("/frog-demo.html", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "public", "frog-demo.html"));
-});
-
 import { randomUUID } from "crypto";
 import path from "path";
 import {
@@ -23,8 +19,12 @@ const app = express();
 
 // serve static files from /public (like frog-demo.html)
 app.use(express.static(path.join(__dirname, "..", "public")));
-
 app.use(bodyParser.json());
+
+// explicit route for the demo page
+app.get("/frog-demo.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "frog-demo.html"));
+});
 
 // Health check
 app.get("/api/health", (req, res) => {
