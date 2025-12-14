@@ -1,5 +1,3 @@
-// src/index.ts
-
 import express from "express";
 import cors from "cors"; 
 import { randomUUID } from "crypto";
@@ -19,7 +17,8 @@ import {
 import { ensureThread, db, addMessage } from "../lib/db";
 // We use the Real AI now (OpenAI)
 import { generateDraftDelta } from "../lib/real_ai"; 
-import { applyDelta } from "../lib/apply_delta";
+
+// REMOVED: applyDelta (We don't need it anymore!)
 
 const app = express();
 
@@ -210,7 +209,7 @@ app.post("/api/thread", (_req, res) => {
   }
 });
 
-// THIS IS THE FIXED ASYNC ROUTE
+// --- THIS IS THE FIXED ROUTE ---
 app.post("/api/thread/:threadId/message", async (req, res) => {
   try {
     const threadId = ensureThread(req.params.threadId);
@@ -228,46 +227,31 @@ app.post("/api/thread/:threadId/message", async (req, res) => {
         return res.status(404).json({ error: "Draft state missing" });
     }
 
-    // We await the AI now
-    const delta = await generateDraftDelta(threadId, msg, {
+    // 1. Get the new AI analysis
+    const aiResult = await generateDraftDelta(threadId, msg, {
       revision: draftState.revision,
       doc: draftState.doc,
     });
 
-    const nextDoc = applyDelta(draftState.doc, delta);
-    draftState.revision = delta.draft_revision;
-    draftState.doc = nextDoc;
-    draftState.deltas.push(delta);
+    // 2. Simply OVERWRITE the old state with the new AI analysis
+    // (We removed applyDelta because the AI is giving us the full answer now)
+    const nextDoc = {
+      summary: aiResult.summary || draftState.doc.summary,
+      extracted: aiResult.extracted || draftState.doc.extracted,
+      highlights: aiResult.highlights || draftState.doc.highlights,
+    };
 
+    draftState.revision = aiResult.draft_revision;
+    draftState.doc = nextDoc;
+    // We don't need to push deltas anymore for this simple version
+    
     res.json({
       message: msg,
-      delta,
+      delta: aiResult,
       draft: nextDoc,
     });
   } catch (err: any) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error" });
   }
-});
-
-app.get("/api/thread/:threadId/draft", (req, res) => {
-  const threadId = ensureThread(req.params.threadId);
-  const draft = db.drafts.get(threadId);
-  if (!draft) return res.status(404).json({ error: "Draft not found" });
-
-  res.json({
-    thread_id: threadId,
-    revision: draft.revision,
-    doc: draft.doc,
-    recent_deltas: draft.deltas.slice(-10),
-  });
-});
-
-// -----------------------------
-// Start Server
-// -----------------------------
-const PORT = Number(process.env.PORT) || 4000;
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Frog Social backend listening on http://localhost:${PORT}`);
 });
