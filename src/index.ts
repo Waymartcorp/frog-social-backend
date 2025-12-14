@@ -17,7 +17,7 @@ import {
 } from "./frogCases";
 
 import { ensureThread, db, addMessage } from "../lib/db";
-import { generateDraftDelta } from "../lib/fake_ai";
+import { generateDraftDelta } from "../lib/real_ai";
 import { applyDelta } from "../lib/apply_delta";
 
 const app = express();
