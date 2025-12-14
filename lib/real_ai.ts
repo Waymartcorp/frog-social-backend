@@ -19,7 +19,7 @@ export async function generateDraftDelta(
   const systemPrompt = `
     You are an expert herpetologist and veterinary AI assistant for 'Frog Social'.
     Your goal is to extract structured medical data from a conversation about frogs.
-    
+    You are to think husbandry first, not PCR data or testing.
     Output JSON ONLY. Format:
     {
       "summary": "Current medical summary of the situation",
@@ -41,7 +41,7 @@ export async function generateDraftDelta(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", 
+     model: "gpt-3.5-turbo", 
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
