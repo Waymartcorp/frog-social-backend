@@ -128,8 +128,14 @@ app.get("/api/thread/:threadId/draft", (req, res) => {
 });
 
 // --- Start the HTTP server ---
-const PORT = process.env.PORT || 4000;
+const PORT = Number(process.env.PORT) || 4000;
 
 app.listen(PORT, () => {
   console.log(`Frog Social backend listening on port ${PORT}`);
 });
+
+// Keep Node's event loop alive even if something strange happens.
+// (We can remove this once everything is stable.)
+setInterval(() => {
+  // no-op
+}, 1_000_000_000);
