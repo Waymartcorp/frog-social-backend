@@ -1,3 +1,5 @@
+// src/index.ts
+
 import express from "express";
 import bodyParser from "body-parser";
 import { randomUUID } from "crypto";
@@ -18,30 +20,32 @@ import { applyDelta } from "../lib/apply_delta";
 
 const app = express();
 
-// 🔴 THIS LINE IS CRITICAL 🔴
+// -----------------------------
+// Static files (frog-demo.html)
+// -----------------------------
+
+// __dirname = .../frog-social-backend/src
+// ".."     = .../frog-social-backend
+// + public = .../frog-social-backend/public
+const publicDir = path.join(__dirname, "..", "public");
+
 // Serve everything in /public (frog-demo.html, etc.)
-app.use(express.static(path.join(process.cwd(), "public")));
+app.use(express.static(publicDir));
 
 // Parse JSON bodies for API routes
 app.use(bodyParser.json());
 
-// -----------------------------
-// Demo page routes
-// -----------------------------
-
-// Use process.cwd() so this works the same with ts-node
-const demoPath = path.join(process.cwd(), "public", "frog-demo.html");
-
+// Explicit routes for root and frog-demo
 app.get("/", (_req, res) => {
-  res.send("Frog Social backend is running. Try /frog-demo or /frog-demo.html");
+  res.send("Frog Social backend is running. Try /frog-demo.html");
 });
 
 app.get("/frog-demo", (_req, res) => {
-  res.sendFile(demoPath);
+  res.sendFile(path.join(publicDir, "frog-demo.html"));
 });
 
 app.get("/frog-demo.html", (_req, res) => {
-  res.sendFile(demoPath);
+  res.sendFile(path.join(publicDir, "frog-demo.html"));
 });
 
 // -----------------------------
@@ -104,7 +108,7 @@ app.post("/api/cases/:id/resolution", (req, res) => {
 // Frog Social thread/draft API
 // -----------------------------
 
-// Create a thread (or return a new one) – returns both threadId and thread
+// Create a thread – returns both threadId and thread
 app.post("/api/thread", (_req, res) => {
   const threadId = ensureThread();
   const thread = db.threads.get(threadId)!;
@@ -121,12 +125,10 @@ app.post("/api/thread/:threadId/message", (req, res) => {
     return res.status(400).json({ error: "Empty message" });
   }
 
-  // store the message in our in-memory DB
   const msg = addMessage(threadId, String(author), trimmed);
 
   const draftState = db.drafts.get(threadId)!;
 
-  // generate a delta using your fake_ai module
   const delta = generateDraftDelta(threadId, msg, {
     revision: draftState.revision,
     doc: draftState.doc,
@@ -166,9 +168,3 @@ const PORT = Number(process.env.PORT) || 4000;
 app.listen(PORT, () => {
   console.log(`Frog Social backend listening on port ${PORT}`);
 });
-
-// Keep Node alive even if something odd happens with listeners.
-// We can remove this later once everything is stable.
-setInterval(() => {
-  // no-op
-}, 1_000_000_000);
