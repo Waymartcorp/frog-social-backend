@@ -1,6 +1,10 @@
 // src/index.ts
 import express from "express";
 import bodyParser from "body-parser";
+app.get("/frog-demo.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "frog-demo.html"));
+});
+
 import { randomUUID } from "crypto";
 import path from "path";
 import {
