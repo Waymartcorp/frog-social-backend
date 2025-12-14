@@ -5,7 +5,7 @@ import cors from "cors";
 import { randomUUID } from "crypto";
 
 // ---------------------------------------------------------
-// LOGIC IMPORTS (Connected to your lib files)
+// LOGIC IMPORTS
 // ---------------------------------------------------------
 import {
   handleNewMessage,
@@ -17,7 +17,8 @@ import {
 } from "./frogCases";
 
 import { ensureThread, db, addMessage } from "../lib/db";
-import { generateDraftDelta } from "../lib/real_ai";
+// We use the Real AI now (OpenAI)
+import { generateDraftDelta } from "../lib/real_ai"; 
 import { applyDelta } from "../lib/apply_delta";
 
 const app = express();
@@ -209,8 +210,8 @@ app.post("/api/thread", (_req, res) => {
   }
 });
 
-// Post a message to a thread and update the live draft
-app.post("/api/thread/:threadId/message", async (req, res) => { // <--- ADDED 'async'
+// THIS IS THE FIXED ASYNC ROUTE
+app.post("/api/thread/:threadId/message", async (req, res) => {
   try {
     const threadId = ensureThread(req.params.threadId);
     const { author = "anon", text = "" } = req.body ?? {};
@@ -227,7 +228,7 @@ app.post("/api/thread/:threadId/message", async (req, res) => { // <--- ADDED 'a
         return res.status(404).json({ error: "Draft state missing" });
     }
 
-    // <--- ADDED 'await' BELOW
+    // We await the AI now
     const delta = await generateDraftDelta(threadId, msg, {
       revision: draftState.revision,
       doc: draftState.doc,
@@ -246,8 +247,6 @@ app.post("/api/thread/:threadId/message", async (req, res) => { // <--- ADDED 'a
   } catch (err: any) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error" });
-  }
-});
   }
 });
 
