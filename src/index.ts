@@ -1,18 +1,17 @@
 import express from "express";
 import cors from "cors"; 
 import { randomUUID } from "crypto";
-import { ensureThread, db, addMessage } from "../lib/db";
-// We import the new Multi-Agent Brain
+
+// 1. Import the new DB functions (including updateDraft)
+import { ensureThread, db, addMessage, updateDraft } from "../lib/db";
 import { generateDraftDelta } from "../lib/real_ai"; 
 
 const app = express();
-
 app.use(cors()); 
-// INCREASED LIMIT: We need 50mb to allow sending photos!
 app.use(express.json({ limit: '50mb' })); 
 
 // ---------------------------------------------------------
-// THE FRONTEND (UI)
+// FRONTEND (No changes here, just keeping it working)
 // ---------------------------------------------------------
 const FROG_DEMO_HTML = `<!doctype html>
 <html lang="en">
@@ -75,7 +74,6 @@ const FROG_DEMO_HTML = `<!doctype html>
         threadIdSpan.textContent = currentThreadId;
       }
 
-      // Convert image file to Base64 string so we can send it as text
       function convertToBase64(file) {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -92,11 +90,9 @@ const FROG_DEMO_HTML = `<!doctype html>
         const file = fileInput.files[0];
         let imageUrl = null;
 
-        // 1. Show local preview immediately
         const msgDiv = document.createElement("div");
         msgDiv.className = "msg";
         let content = "<strong>User:</strong> " + (text || "(Image Only)");
-        
         if (file) {
            imageUrl = await convertToBase64(file);
            content += "<br><img src='" + imageUrl + "' style='max-height: 100px'>";
@@ -104,11 +100,8 @@ const FROG_DEMO_HTML = `<!doctype html>
         msgDiv.innerHTML = content;
         messagesDiv.appendChild(msgDiv);
         
-        // Clear inputs
         textInput.value = "";
         fileInput.value = "";
-
-        // 2. Send to Server
         extractedBox.textContent = "🍌 Banana Pro is analyzing pixels...";
         
         try {
@@ -120,14 +113,12 @@ const FROG_DEMO_HTML = `<!doctype html>
 
           const data = await res.json();
           const draft = data.draft || {};
-          
           summaryBox.textContent = draft.summary || "No summary";
           extractedBox.textContent = JSON.stringify(draft.extracted || {}, null, 2);
         } catch (e) {
           extractedBox.textContent = "Error: " + e.message;
         }
       }
-      
       createThread();
     </script>
   </body>
@@ -137,43 +128,52 @@ const FROG_DEMO_HTML = `<!doctype html>
 // SERVER ROUTES
 // ---------------------------------------------------------
 
-// --- 1. THE REDIRECT FIX ---
-// If you visit the homepage "/", go straight to the demo
 app.get("/", (req, res) => {
   res.redirect("/frog-demo");
 });
 
-// --- 2. SERVE THE DEMO ---
 app.get(["/frog-demo", "/frog-demo.html"], (req, res) => res.send(FROG_DEMO_HTML));
 
-app.post("/api/thread", (req, res) => {
-  const threadId = ensureThread();
-  res.json({ threadId });
+// --- 2. ASYNC THREAD CREATION ---
+app.post("/api/thread", async (req, res) => {
+  try {
+    const threadId = await ensureThread(); // Waited for DB
+    res.json({ threadId });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: "DB Error" });
+  }
 });
 
+// --- 3. ASYNC MESSAGE HANDLING ---
 app.post("/api/thread/:threadId/message", async (req, res) => {
   try {
-    const threadId = ensureThread(req.params.threadId);
+    const threadId = await ensureThread(req.params.threadId); // Wait for DB
     const { author, text, imageUrl } = req.body;
     
-    // Save message (Note: We are not saving the Base64 image in the simple DB to keep it light)
-    const msg = addMessage(threadId, author, text); 
-    const draftState = db.drafts.get(threadId);
+    // Save message to Neon DB
+    const msg = await addMessage(threadId, author, text, imageUrl); 
+    
+    // Get current draft from Neon DB
+    const draftState = await db.drafts.get(threadId);
 
-    // CALL THE NEW BRAIN (With Banana Pro support)
+    // Call the AI (Brain + Vision)
     const aiResult = await generateDraftDelta(threadId, { ...msg, imageUrl }, {
-      revision: draftState.revision,
-      doc: draftState.doc,
+      revision: draftState?.revision || 0,
+      doc: draftState?.doc || { summary: "", extracted: {}, highlights: [] },
     });
 
     const nextDoc = {
-      summary: aiResult.summary || draftState.doc.summary,
-      extracted: aiResult.extracted || draftState.doc.extracted,
-      highlights: aiResult.highlights || draftState.doc.highlights,
+      summary: aiResult.summary || "",
+      extracted: aiResult.extracted || {},
+      highlights: aiResult.highlights || [],
     };
 
-    draftState.revision = aiResult.draft_revision;
-    draftState.doc = nextDoc;
+    // Save the new diagnosis back to Neon DB
+    await updateDraft(threadId, {
+      draft_revision: aiResult.draft_revision,
+      ...nextDoc
+    });
 
     res.json({ draft: nextDoc });
   } catch (err: any) {
@@ -183,4 +183,4 @@ app.post("/api/thread/:threadId/message", async (req, res) => {
 });
 
 const PORT = Number(process.env.PORT) || 4000;
-app.listen(PORT, "0.0.0.0", () => console.log(`✅ Vision Demo running on port ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => console.log(`✅ Vision + Database running on port ${PORT}`));
