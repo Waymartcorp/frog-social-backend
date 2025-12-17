@@ -3,83 +3,104 @@ import cors from "cors";
 import { randomUUID } from "crypto";
 import { ensureThread, db, addMessage, updateDraft } from "../lib/db";
 import { generateDraftDelta } from "../lib/real_ai"; 
-// We need this to read the list of threads from the DB
 import { Pool } from "pg";
 
 const app = express();
 app.use(cors()); 
 app.use(express.json({ limit: '50mb' })); 
 
-// Quick access to DB for the feed
+// Connection for the Feed
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: true });
 
 // ---------------------------------------------------------
-// FRONTEND: DASHBOARD & FEED
+// FRONTEND: COMMUNITY FEED UI
 // ---------------------------------------------------------
 const FROG_DEMO_HTML = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Frog Social – Community Feed</title>
+    <title>Frog Social – Community</title>
     <style>
       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
-      header { background: #2c3e50; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 18px; }
+      
+      /* HEADER */
+      header { background: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+      header h1 { margin: 0; font-size: 18px; font-weight: bold; }
+      .tos-link { color: #bdc3c7; font-size: 12px; text-decoration: none; cursor: pointer; }
+      .tos-link:hover { color: white; text-decoration: underline; }
+
+      /* LAYOUT */
       .container { display: flex; flex: 1; overflow: hidden; }
       
-      /* LEFT: THE FEED (Slack Sidebar) */
-      .sidebar { width: 300px; background: #fff; border-right: 1px solid #ddd; overflow-y: auto; display: flex; flex-direction: column; }
+      /* SIDEBAR (Feed) */
+      .sidebar { width: 300px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+      .feed-header { padding: 15px; border-bottom: 1px solid #eee; background: #f8f9fa; font-weight: bold; color: #555; display: flex; justify-content: space-between; }
+      .feed-list { flex: 1; overflow-y: auto; }
       .feed-item { padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: 0.2s; }
-      .feed-item:hover { background: #f9f9f9; }
-      .feed-item h4 { margin: 0 0 5px 0; font-size: 14px; color: #333; }
-      .feed-item p { margin: 0; font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .refresh-btn { margin: 10px; padding: 10px; background: #eee; border: none; cursor: pointer; border-radius: 6px; }
+      .feed-item:hover { background: #eef2f5; }
+      .feed-item.active { background: #e3f2fd; border-left: 4px solid #007bff; }
+      .feed-date { font-size: 11px; color: #999; margin-top: 4px; }
+      .new-btn { margin: 10px; padding: 10px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
 
-      /* RIGHT: THE CHAT */
-      .main { flex: 1; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; }
-      .card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #ddd; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-      .msg { background: #f6f6f6; border-radius: 8px; padding: 12px; margin-bottom: 8px; font-size: 14px; }
-      .controls { display: flex; gap: 10px; margin-top: 15px; }
-      input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
-      button.primary { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-      button.primary:hover { background: #0056b3; }
+      /* MAIN CHAT AREA */
+      .main { flex: 1; display: flex; flex-direction: column; background: #fff; }
+      .chat-header { padding: 15px; border-bottom: 1px solid #ddd; background: #fff; }
+      .messages-area { flex: 1; overflow-y: auto; padding: 20px; background: #f0f2f5; }
+      .msg { max-width: 80%; margin-bottom: 15px; padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
+      .msg.user { background: #007bff; color: white; margin-left: auto; border-bottom-right-radius: 2px; }
+      .msg.ai { background: #fff; border: 1px solid #ddd; border-bottom-left-radius: 2px; }
       
-      /* DATA BOX */
-      pre { background: #2d2d2d; color: #50ff50; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 12px; }
-      img { max-width: 100%; border-radius: 8px; margin-top: 8px; }
-      .badge { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-right: 5px; }
-      .badge-red { background: #ffebeb; color: #d63031; }
-      .badge-green { background: #e6fffa; color: #00b894; }
+      /* REPORT CARD (The "Pretty" Output) */
+      .report-card { background: #fff; border: 1px solid #e1e4e8; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+      .report-header { background: #f6f8fa; padding: 10px 15px; border-bottom: 1px solid #e1e4e8; font-weight: bold; color: #24292e; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+      .report-body { padding: 15px; }
+      .warning-box { background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; border: 1px solid #ffeeba; }
+
+      /* INPUT AREA */
+      .input-area { padding: 20px; background: #fff; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: center; }
+      input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
+      input[type="file"] { width: 100px; font-size: 12px; }
+      button.send { background: #2ecc71; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; }
     </style>
   </head>
   <body>
-    <header>🐸 Frog Social: Expert Protocol Beta</header>
+    <header>
+      <h1>🐸 Frog Social</h1>
+      <a href="#" onclick="alert('Terms of Service: Be kind to frogs. Don\'t post bad advice.')" class="tos-link">Terms of Service</a>
+    </header>
+    
     <div class="container">
-      
       <div class="sidebar">
-        <button class="refresh-btn" onclick="loadFeed()">🔄 Refresh Feed</button>
-        <div id="feedList">Loading cases...</div>
+        <button class="new-btn" onclick="createNewThread()">+ New Case</button>
+        <div class="feed-header">
+          <span>Recent Cases</span>
+          <span style="cursor:pointer" onclick="loadFeed()">🔄</span>
+        </div>
+        <div id="feedList" class="feed-list">Loading...</div>
       </div>
 
       <div class="main">
-        <div class="card">
-          <h2 id="threadTitle">New Case</h2>
-          <div style="font-size: 12px; color: #999; margin-bottom: 10px">Thread ID: <span id="threadId">...</span></div>
-          
-          <div id="messages" style="max-height: 400px; overflow-y: auto; margin-bottom: 15px;"></div>
-          
-          <div class="controls">
-            <input type="text" id="textInput" placeholder="Describe symptoms (e.g. 'Bloated, temp 75F')..." />
-          </div>
-          <div class="controls">
-             <input type="file" id="fileInput" accept="image/*" />
-             <button class="primary" onclick="sendMessage()">Analyze Case</button>
-          </div>
+        <div class="chat-header">
+          <h3 id="threadTitle" style="margin:0">Select a case...</h3>
+          <div style="font-size: 11px; color: #999; margin-top:2px">ID: <span id="threadId">-</span></div>
+        </div>
+        
+        <div id="messages" class="messages-area"></div>
+        
+        <div id="aiReport" style="padding: 0 20px; display: none;">
+             <div class="report-card">
+                <div class="report-header">🧬 Expert Protocol Analysis</div>
+                <div class="report-body">
+                    <div id="warningsArea"></div>
+                    <p id="summaryText" style="color: #444; font-size: 14px; margin: 0;"></p>
+                </div>
+             </div>
         </div>
 
-        <div class="card">
-          <h3>🧬 Expert Protocol Analysis</h3>
-          <div id="summaryBox" style="margin-bottom: 10px; line-height: 1.5; color: #444;">—</div>
-          <pre id="extractedBox">Waiting for data...</pre>
+        <div class="input-area">
+           <input type="file" id="fileInput" accept="image/*" />
+           <input type="text" id="textInput" placeholder="Type a message or upload a photo..." />
+           <button class="send" onclick="sendMessage()">Send</button>
         </div>
       </div>
     </div>
@@ -97,9 +118,10 @@ const FROG_DEMO_HTML = `<!doctype html>
         cases.forEach(c => {
           const div = document.createElement("div");
           div.className = "feed-item";
-          // If there's a summary, show it, otherwise show thread ID
-          const title = c.summary ? c.summary.substring(0, 40) + "..." : "Untitled Case";
-          div.innerHTML = "<h4>" + title + "</h4><p>" + new Date(c.created_at).toLocaleString() + "</p>";
+          if(c.thread_id === currentThreadId) div.classList.add("active");
+          
+          const title = c.summary ? c.summary.substring(0, 35) + "..." : "Untitled Case";
+          div.innerHTML = "<strong>" + title + "</strong><div class='feed-date'>" + new Date(c.created_at).toLocaleTimeString() + "</div>";
           div.onclick = () => loadThread(c.thread_id);
           list.appendChild(div);
         });
@@ -108,18 +130,17 @@ const FROG_DEMO_HTML = `<!doctype html>
       function loadThread(id) {
         currentThreadId = id;
         document.getElementById("threadId").textContent = id;
-        document.getElementById("messages").innerHTML = "<div class='msg'><em>Loaded history... (Hidden for demo simplicity)</em></div>";
         document.getElementById("threadTitle").textContent = "Viewing Case";
-        // In a real app, we would fetch the message history here
+        document.getElementById("messages").innerHTML = "<div style='text-align:center; color:#999; margin-top:20px'>History loaded from database...</div>";
+        document.getElementById("aiReport").style.display = "none";
+        loadFeed(); // highlight active
       }
 
       async function createNewThread() {
         const res = await fetch("/api/thread", { method: "POST" });
         const data = await res.json();
-        currentThreadId = data.threadId;
-        document.getElementById("threadId").textContent = currentThreadId;
+        loadThread(data.threadId);
         document.getElementById("threadTitle").textContent = "New Case";
-        loadFeed(); // Refresh sidebar
       }
 
       // --- CHAT LOGIC ---
@@ -132,33 +153,57 @@ const FROG_DEMO_HTML = `<!doctype html>
         });
       }
 
+      function renderReport(draft) {
+         const reportDiv = document.getElementById("aiReport");
+         const summaryText = document.getElementById("summaryText");
+         const warningsArea = document.getElementById("warningsArea");
+         
+         reportDiv.style.display = "block";
+         summaryText.textContent = draft.summary || "Analyzing...";
+         
+         // Turn protocol violations into warning badges
+         warningsArea.innerHTML = "";
+         if (draft.extracted && draft.extracted.protocol_violations) {
+             draft.extracted.protocol_violations.forEach(v => {
+                 const w = document.createElement("div");
+                 w.className = "warning-box";
+                 w.innerHTML = "⚠️ <strong>Protocol Alert:</strong> " + v;
+                 warningsArea.appendChild(w);
+             });
+         }
+      }
+
       async function sendMessage() {
         if (!currentThreadId) await createNewThread();
         
         const textInput = document.getElementById("textInput");
         const fileInput = document.getElementById("fileInput");
-        const extractedBox = document.getElementById("extractedBox");
-        const summaryBox = document.getElementById("summaryBox");
-        const messagesDiv = document.getElementById("messages");
+        const msgs = document.getElementById("messages");
 
         const text = textInput.value;
         const file = fileInput.files[0];
         let imageUrl = null;
 
-        // Local Preview
+        // 1. User Message bubble
         const msgDiv = document.createElement("div");
-        msgDiv.className = "msg";
-        let content = "<strong>You:</strong> " + (text || "(Image Only)");
+        msgDiv.className = "msg user";
+        let content = text || "(Image)";
         if (file) {
            imageUrl = await convertToBase64(file);
-           content += "<br><img src='" + imageUrl + "' style='max-height: 150px'>";
+           content += "<br><img src='" + imageUrl + "' style='max-height: 150px; border-radius: 8px; margin-top:5px'>";
         }
         msgDiv.innerHTML = content;
-        messagesDiv.appendChild(msgDiv);
+        msgs.appendChild(msgDiv);
+        msgs.scrollTop = msgs.scrollHeight; // Auto scroll down
         
         textInput.value = "";
         fileInput.value = "";
-        extractedBox.textContent = "🔍 Applying 13-Point Protocol...";
+
+        // 2. AI Thinking bubble
+        const loadingDiv = document.createElement("div");
+        loadingDiv.className = "msg ai";
+        loadingDiv.innerText = "Thinking...";
+        msgs.appendChild(loadingDiv);
         
         try {
           const res = await fetch("/api/thread/" + currentThreadId + "/message", {
@@ -168,20 +213,16 @@ const FROG_DEMO_HTML = `<!doctype html>
           });
 
           const data = await res.json();
-          const draft = data.draft || {};
-          
-          summaryBox.textContent = draft.summary || "No summary available.";
-          extractedBox.textContent = JSON.stringify(draft.extracted || {}, null, 2);
-          
-          // Refresh the feed to show the new summary in the sidebar!
-          loadFeed(); 
+          loadingDiv.remove(); // Remove "thinking"
+          renderReport(data.draft || {}); // Show the pretty report
+          loadFeed(); // Refresh sidebar
         } catch (e) {
-          extractedBox.textContent = "Error: " + e.message;
+          loadingDiv.innerText = "Error: " + e.message;
         }
       }
       
-      // Init
-      createNewThread();
+      // Start with a list
+      loadFeed();
     </script>
   </body>
 </html>`;
@@ -193,17 +234,17 @@ const FROG_DEMO_HTML = `<!doctype html>
 app.get("/", (req, res) => res.redirect("/frog-demo"));
 app.get(["/frog-demo", "/frog-demo.html"], (req, res) => res.send(FROG_DEMO_HTML));
 
-// --- API: FEED (New!) ---
+// API: FEED
 app.get("/api/feed", async (req, res) => {
   try {
-    // Get last 10 threads + their summaries
     const client = await pool.connect();
+    // Fetch last 15 active threads
     const result = await client.query(`
       SELECT t.id as thread_id, t.created_at, d.summary 
       FROM threads t
       LEFT JOIN drafts d ON t.id = d.thread_id
       ORDER BY t.created_at DESC
-      LIMIT 10
+      LIMIT 15
     `);
     client.release();
     res.json(result.rows);
@@ -213,6 +254,7 @@ app.get("/api/feed", async (req, res) => {
   }
 });
 
+// THREAD CREATION
 app.post("/api/thread", async (req, res) => {
   try {
     const threadId = await ensureThread(); 
@@ -222,6 +264,7 @@ app.post("/api/thread", async (req, res) => {
   }
 });
 
+// MESSAGE HANDLING
 app.post("/api/thread/:threadId/message", async (req, res) => {
   try {
     const threadId = await ensureThread(req.params.threadId);
@@ -230,7 +273,7 @@ app.post("/api/thread/:threadId/message", async (req, res) => {
     await addMessage(threadId, author, text, imageUrl); 
     const draftState = await db.drafts.get(threadId);
 
-    const aiResult = await generateDraftDelta(threadId, { ...msg: {author, text}, imageUrl }, {
+    const aiResult = await generateDraftDelta(threadId, { ...{author, text}, imageUrl }, {
       revision: draftState?.revision || 0,
       doc: draftState?.doc || { summary: "", extracted: {}, highlights: [] },
     });
@@ -254,4 +297,4 @@ app.post("/api/thread/:threadId/message", async (req, res) => {
 });
 
 const PORT = Number(process.env.PORT) || 4000;
-app.listen(PORT, "0.0.0.0", () => console.log(`✅ Frog Social Feed running on port ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => console.log(`✅ Frog Social Community Feed running on port ${PORT}`));
