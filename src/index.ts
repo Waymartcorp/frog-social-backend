@@ -12,7 +12,7 @@ app.use(express.json({ limit: '50mb' }));
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: true });
 
 // ---------------------------------------------------------
-// FRONTEND: DUAL MODE (MEDICAL vs WELLNESS)
+// FRONTEND: FEEDING & STRESS TEST EDITION
 // ---------------------------------------------------------
 const FROG_DEMO_HTML = `<!doctype html>
 <html lang="en">
@@ -53,7 +53,7 @@ const FROG_DEMO_HTML = `<!doctype html>
       .msg { max-width: 80%; margin-bottom: 15px; padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
       .msg.user { background: #007bff; color: white; margin-left: auto; }
       .msg.ai { background: #fff; border: 1px solid #ddd; }
-      .msg.system { background: #ffeaa7; color: #d35400; font-size: 12px; text-align: center; margin: 0 auto 10px auto; width: fit-content; }
+      .msg.system { background: #ffeaa7; color: #d35400; font-size: 12px; text-align: center; margin: 0 auto 10px auto; width: fit-content; border: 1px solid #e1b12c; }
 
       .film-strip { display: flex; gap: 5px; margin-top: 8px; overflow-x: auto; }
       .film-strip img { height: 60px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.5); }
@@ -83,10 +83,10 @@ const FROG_DEMO_HTML = `<!doctype html>
       <div class="sidebar">
         <div class="action-buttons">
             <button class="btn-issue" onclick="startThread('issue')">
-                <span>🚑 Report Issue</span>
+                <span>🚑 Report Emergency</span>
             </button>
             <button class="btn-grade" onclick="startThread('grade')">
-                <span>🥑 Grade Colony</span>
+                <span>🥑 Weekly Feeding & Stress Test</span>
             </button>
         </div>
         <div style="padding: 10px; font-size: 11px; color: #999; font-weight: bold; background: #f8f9fa;">RECENT ACTIVITY</div>
@@ -109,7 +109,7 @@ const FROG_DEMO_HTML = `<!doctype html>
         <div class="input-wrapper">
            <div class="input-row">
                <input type="file" id="fileInput" accept="image/*,video/*" />
-               <input type="text" id="textInput" placeholder="Type message..." />
+               <input type="text" id="textInput" placeholder="Select a mode above..." />
                <button class="send" onclick="sendMessage()">Send</button>
            </div>
         </div>
@@ -120,7 +120,7 @@ const FROG_DEMO_HTML = `<!doctype html>
 
     <script>
       let currentThreadId = null;
-      let currentMode = 'issue'; // 'issue' or 'grade'
+      let currentMode = 'issue'; 
 
       async function loadFeed() {
         const res = await fetch("/api/feed");
@@ -133,7 +133,6 @@ const FROG_DEMO_HTML = `<!doctype html>
           div.className = "feed-item";
           if(c.thread_id === currentThreadId) div.classList.add("active");
           
-          // Determine Icon based on content (simple keyword check for now)
           let icon = "📄";
           const lowerSum = (c.summary || "").toLowerCase();
           if (lowerSum.includes("density") || lowerSum.includes("grade") || lowerSum.includes("feeding")) icon = "🥑";
@@ -163,22 +162,20 @@ const FROG_DEMO_HTML = `<!doctype html>
         msgs.innerHTML = "";
         document.getElementById("aiReport").style.display = "none";
 
-        // Inject System Welcome Message based on Mode
         const sysDiv = document.createElement("div");
         sysDiv.className = "msg system";
         
         if (mode === 'grade') {
-            sysDiv.innerText = "🥑 COLONY GRADING: Please upload a 10s feeding video to verify High Density protocol.";
-            document.getElementById("textInput").placeholder = "Upload feeding video...";
+            sysDiv.innerText = "🥑 WEEKLY AUDIT: Upload a 10s feeding video. We analyze reaction time to detect hidden stress or low density.";
+            document.getElementById("textInput").placeholder = "Upload video for your Weekly Grade...";
         } else {
-            sysDiv.innerText = "🚑 MEDICAL ISSUE: Please describe symptoms (e.g. Red Leg, Bloating) and upload photos.";
-            document.getElementById("textInput").placeholder = "Describe the problem...";
+            sysDiv.innerText = "🚑 EMERGENCY PROTOCOL: Please describe symptoms (e.g. Red Leg, Bloating) and upload photos.";
+            document.getElementById("textInput").placeholder = "Describe the symptoms...";
         }
         msgs.appendChild(sysDiv);
         loadFeed();
       }
 
-      // --- MEDIA PROCESSOR ---
       function processFile(file) {
         return new Promise(async (resolve, reject) => {
           if (file.type.startsWith('image/')) {
@@ -267,12 +264,10 @@ const FROG_DEMO_HTML = `<!doctype html>
 
         const loadingDiv = document.createElement("div");
         loadingDiv.className = "msg ai";
-        loadingDiv.innerText = "Consulting Expert Protocol..."; 
+        loadingDiv.innerText = "Analyzing Stress Indicators..."; 
         msgs.appendChild(loadingDiv);
         
         try {
-          // Prepend context based on mode if it's the first message? 
-          // For simplicity, we just send user text. The AI figures it out from context usually.
           const res = await fetch("/api/thread/" + currentThreadId + "/message", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
