@@ -9,17 +9,16 @@ const app = express();
 app.use(cors()); 
 app.use(express.json({ limit: '50mb' })); 
 
-// Connection for the Feed
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: true });
 
 // ---------------------------------------------------------
-// FRONTEND: COMMUNITY FEED UI
+// FRONTEND: VIDEO LAB + COMMUNITY FEED
 // ---------------------------------------------------------
 const FROG_DEMO_HTML = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Frog Social – Community</title>
+    <title>Frog Social – Video Lab</title>
     <style>
       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
       
@@ -32,59 +31,56 @@ const FROG_DEMO_HTML = `<!doctype html>
       /* LAYOUT */
       .container { display: flex; flex: 1; overflow: hidden; }
       
-      /* SIDEBAR (Feed) */
+      /* SIDEBAR */
       .sidebar { width: 300px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
-      .feed-header { padding: 15px; border-bottom: 1px solid #eee; background: #f8f9fa; font-weight: bold; color: #555; display: flex; justify-content: space-between; }
+      .feed-header { padding: 15px; border-bottom: 1px solid #eee; background: #f8f9fa; font-weight: bold; color: #555; }
       .feed-list { flex: 1; overflow-y: auto; }
       .feed-item { padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: 0.2s; }
       .feed-item:hover { background: #eef2f5; }
       .feed-item.active { background: #e3f2fd; border-left: 4px solid #007bff; }
-      .feed-date { font-size: 11px; color: #999; margin-top: 4px; }
       .new-btn { margin: 10px; padding: 10px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
 
-      /* MAIN CHAT AREA */
+      /* MAIN CHAT */
       .main { flex: 1; display: flex; flex-direction: column; background: #fff; }
-      .chat-header { padding: 15px; border-bottom: 1px solid #ddd; background: #fff; }
       .messages-area { flex: 1; overflow-y: auto; padding: 20px; background: #f0f2f5; }
+      
+      /* MESSAGES */
       .msg { max-width: 80%; margin-bottom: 15px; padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
       .msg.user { background: #007bff; color: white; margin-left: auto; border-bottom-right-radius: 2px; }
       .msg.ai { background: #fff; border: 1px solid #ddd; border-bottom-left-radius: 2px; }
       
-      /* REPORT CARD (The "Pretty" Output) */
+      /* FILM STRIP (VIDEO PREVIEW) */
+      .film-strip { display: flex; gap: 5px; margin-top: 8px; overflow-x: auto; padding-bottom: 5px; }
+      .film-strip img { height: 60px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.5); }
+
+      /* REPORT CARD */
       .report-card { background: #fff; border: 1px solid #e1e4e8; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
-      .report-header { background: #f6f8fa; padding: 10px 15px; border-bottom: 1px solid #e1e4e8; font-weight: bold; color: #24292e; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+      .report-header { background: #f6f8fa; padding: 10px 15px; border-bottom: 1px solid #e1e4e8; font-weight: bold; color: #24292e; font-size: 13px; }
       .report-body { padding: 15px; }
       .warning-box { background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; border: 1px solid #ffeeba; }
 
-      /* INPUT AREA */
+      /* INPUT */
       .input-area { padding: 20px; background: #fff; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: center; }
       input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
-      input[type="file"] { width: 100px; font-size: 12px; }
       button.send { background: #2ecc71; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+      
+      /* HIDDEN VIDEO PROCESSOR */
+      #videoProcessor { display: none; }
     </style>
   </head>
   <body>
     <header>
-      <h1>🐸 Frog Social</h1>
-      <a href="#" onclick="alert('Terms of Service: Be kind to frogs. Don\'t post bad advice.')" class="tos-link">Terms of Service</a>
+      <h1>🐸 Frog Social: Video Lab</h1>
+      <a href="https://xenopuswelfare.org" target="_blank" class="tos-link">Terms of Service</a>
     </header>
     
     <div class="container">
       <div class="sidebar">
         <button class="new-btn" onclick="createNewThread()">+ New Case</button>
-        <div class="feed-header">
-          <span>Recent Cases</span>
-          <span style="cursor:pointer" onclick="loadFeed()">🔄</span>
-        </div>
         <div id="feedList" class="feed-list">Loading...</div>
       </div>
 
       <div class="main">
-        <div class="chat-header">
-          <h3 id="threadTitle" style="margin:0">Select a case...</h3>
-          <div style="font-size: 11px; color: #999; margin-top:2px">ID: <span id="threadId">-</span></div>
-        </div>
-        
         <div id="messages" class="messages-area"></div>
         
         <div id="aiReport" style="padding: 0 20px; display: none;">
@@ -98,12 +94,14 @@ const FROG_DEMO_HTML = `<!doctype html>
         </div>
 
         <div class="input-area">
-           <input type="file" id="fileInput" accept="image/*" />
-           <input type="text" id="textInput" placeholder="Type a message or upload a photo..." />
-           <button class="send" onclick="sendMessage()">Send</button>
+           <input type="file" id="fileInput" accept="image/*,video/*" />
+           <input type="text" id="textInput" placeholder="Upload video to check feeding frenzy..." />
+           <button class="send" onclick="sendMessage()">Analyze</button>
         </div>
       </div>
     </div>
+    
+    <video id="videoProcessor" muted playsinline></video>
 
     <script>
       let currentThreadId = null;
@@ -119,9 +117,8 @@ const FROG_DEMO_HTML = `<!doctype html>
           const div = document.createElement("div");
           div.className = "feed-item";
           if(c.thread_id === currentThreadId) div.classList.add("active");
-          
           const title = c.summary ? c.summary.substring(0, 35) + "..." : "Untitled Case";
-          div.innerHTML = "<strong>" + title + "</strong><div class='feed-date'>" + new Date(c.created_at).toLocaleTimeString() + "</div>";
+          div.innerHTML = "<strong>" + title + "</strong><div style='font-size:11px;color:#999'>" + new Date(c.created_at).toLocaleTimeString() + "</div>";
           div.onclick = () => loadThread(c.thread_id);
           list.appendChild(div);
         });
@@ -129,27 +126,54 @@ const FROG_DEMO_HTML = `<!doctype html>
 
       function loadThread(id) {
         currentThreadId = id;
-        document.getElementById("threadId").textContent = id;
-        document.getElementById("threadTitle").textContent = "Viewing Case";
         document.getElementById("messages").innerHTML = "<div style='text-align:center; color:#999; margin-top:20px'>History loaded from database...</div>";
         document.getElementById("aiReport").style.display = "none";
-        loadFeed(); // highlight active
+        loadFeed(); 
       }
 
       async function createNewThread() {
         const res = await fetch("/api/thread", { method: "POST" });
         const data = await res.json();
         loadThread(data.threadId);
-        document.getElementById("threadTitle").textContent = "New Case";
       }
 
-      // --- CHAT LOGIC ---
-      function convertToBase64(file) {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = error => reject(error);
+      // --- MEDIA PROCESSOR (VIDEO & IMAGE) ---
+      function processFile(file) {
+        return new Promise(async (resolve, reject) => {
+          if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = () => resolve({ type: 'image', data: [reader.result] });
+            reader.readAsDataURL(file);
+          } else if (file.type.startsWith('video/')) {
+            // Video: Extract 3 frames (Start, Middle, End)
+            const frames = [];
+            const video = document.getElementById('videoProcessor');
+            const url = URL.createObjectURL(file);
+            
+            video.src = url;
+            await video.load();
+            
+            video.onloadeddata = async () => {
+              // Grab frame at 0%, 50%, and 90% of duration
+              const times = [0, video.duration / 2, Math.max(0, video.duration - 0.5)];
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              
+              for (let t of times) {
+                if (!isFinite(t)) t = 0;
+                video.currentTime = t;
+                await new Promise(r => video.onseeked = r);
+                
+                canvas.width = video.videoWidth / 4; // Downscale to save data
+                canvas.height = video.videoHeight / 4;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                frames.push(canvas.toDataURL('image/jpeg', 0.6));
+              }
+              URL.revokeObjectURL(url);
+              resolve({ type: 'video_frames', data: frames });
+            };
+            video.onerror = reject;
+          }
         });
       }
 
@@ -161,7 +185,6 @@ const FROG_DEMO_HTML = `<!doctype html>
          reportDiv.style.display = "block";
          summaryText.textContent = draft.summary || "Analyzing...";
          
-         // Turn protocol violations into warning badges
          warningsArea.innerHTML = "";
          if (draft.extracted && draft.extracted.protocol_violations) {
              draft.extracted.protocol_violations.forEach(v => {
@@ -182,46 +205,55 @@ const FROG_DEMO_HTML = `<!doctype html>
 
         const text = textInput.value;
         const file = fileInput.files[0];
-        let imageUrl = null;
+        
+        // 1. Process Media Client-Side
+        let visualPayload = null;
+        let htmlContent = "<strong>You:</strong> " + (text || "(Media)");
+        
+        if (file) {
+           const result = await processFile(file);
+           if (result.type === 'video_frames') {
+              visualPayload = result.data[0]; // Send 1st frame to AI (for now)
+              // Show film strip
+              htmlContent += "<br><div class='film-strip'>";
+              result.data.forEach(src => htmlContent += "<img src='" + src + "'>");
+              htmlContent += "</div><div style='font-size:10px;color:#666'>Video processed into frames</div>";
+           } else {
+              visualPayload = result.data[0];
+              htmlContent += "<br><img src='" + visualPayload + "' style='max-height: 150px; border-radius: 8px; margin-top:5px'>";
+           }
+        }
 
-        // 1. User Message bubble
         const msgDiv = document.createElement("div");
         msgDiv.className = "msg user";
-        let content = text || "(Image)";
-        if (file) {
-           imageUrl = await convertToBase64(file);
-           content += "<br><img src='" + imageUrl + "' style='max-height: 150px; border-radius: 8px; margin-top:5px'>";
-        }
-        msgDiv.innerHTML = content;
+        msgDiv.innerHTML = htmlContent;
         msgs.appendChild(msgDiv);
-        msgs.scrollTop = msgs.scrollHeight; // Auto scroll down
+        msgs.scrollTop = msgs.scrollHeight;
         
         textInput.value = "";
         fileInput.value = "";
 
-        // 2. AI Thinking bubble
         const loadingDiv = document.createElement("div");
         loadingDiv.className = "msg ai";
-        loadingDiv.innerText = "Thinking...";
+        loadingDiv.innerText = "Analyzing Density & Behavior...";
         msgs.appendChild(loadingDiv);
         
         try {
           const res = await fetch("/api/thread/" + currentThreadId + "/message", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ author: "User", text, imageUrl }),
+            body: JSON.stringify({ author: "User", text, imageUrl: visualPayload }),
           });
 
           const data = await res.json();
-          loadingDiv.remove(); // Remove "thinking"
-          renderReport(data.draft || {}); // Show the pretty report
-          loadFeed(); // Refresh sidebar
+          loadingDiv.remove(); 
+          renderReport(data.draft || {}); 
+          loadFeed(); 
         } catch (e) {
           loadingDiv.innerText = "Error: " + e.message;
         }
       }
       
-      // Start with a list
       loadFeed();
     </script>
   </body>
@@ -238,7 +270,6 @@ app.get(["/frog-demo", "/frog-demo.html"], (req, res) => res.send(FROG_DEMO_HTML
 app.get("/api/feed", async (req, res) => {
   try {
     const client = await pool.connect();
-    // Fetch last 15 active threads
     const result = await client.query(`
       SELECT t.id as thread_id, t.created_at, d.summary 
       FROM threads t
@@ -273,7 +304,7 @@ app.post("/api/thread/:threadId/message", async (req, res) => {
     await addMessage(threadId, author, text, imageUrl); 
     const draftState = await db.drafts.get(threadId);
 
-    const aiResult = await generateDraftDelta(threadId, { ...{author, text}, imageUrl }, {
+    const aiResult = await generateDraftDelta(threadId, { author, text, imageUrl }, {
       revision: draftState?.revision || 0,
       doc: draftState?.doc || { summary: "", extracted: {}, highlights: [] },
     });
