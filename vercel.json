@@ -5,12 +5,16 @@
       "destination": "https://frog-social-backend-1.onrender.com/frog-demo"
     },
     {
+      "source": "/describe-problem",
+      "destination": "https://frog-social-backend-1.onrender.com/frog-demo"
+    },
+    {
       "source": "/social.html",
       "destination": "https://frog-social-backend-1.onrender.com/frog-demo"
     },
     {
       "source": "/(.*)",
-      "destination": "/"
+      "destination": "/index.html"
     }
   ]
 }
