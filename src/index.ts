@@ -6,7 +6,17 @@ import { generateDraftDelta } from "../lib/real_ai";
 import { Pool } from "pg";
 
 const app = express();
-app.use(cors()); 
+const allowedOrigins = [
+  'https://frogsocial.org', 
+  'https://www.frogsocial.org'
+];
+
+const corsOptions: cors.CorsOptions = {
+  origin: allowedOrigins,
+  credentials: true, // Required if you plan to use cookies or login sessions
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' })); 
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: true });
