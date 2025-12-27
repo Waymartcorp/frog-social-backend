@@ -6,6 +6,8 @@ import { generateDraftDelta } from "../lib/real_ai";
 import { Pool } from "pg";
 
 const app = express();
+
+// 1. UPDATED CORS: This allows your Vercel site to talk to this backend
 const allowedOrigins = [
   'https://frogsocial.org', 
   'https://www.frogsocial.org'
@@ -13,7 +15,7 @@ const allowedOrigins = [
 
 const corsOptions: cors.CorsOptions = {
   origin: allowedOrigins,
-  credentials: true, // Required if you plan to use cookies or login sessions
+  credentials: true,
 };
 
 app.use(cors(corsOptions));
@@ -22,7 +24,7 @@ app.use(express.json({ limit: '50mb' }));
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: true });
 
 // ---------------------------------------------------------
-// FRONTEND: FEEDING & STRESS TEST EDITION
+// FRONTEND: FEEDING & STRESS TEST EDITION (The Lab Portal)
 // ---------------------------------------------------------
 const FROG_DEMO_HTML = `<!doctype html>
 <html lang="en">
@@ -31,55 +33,37 @@ const FROG_DEMO_HTML = `<!doctype html>
     <title>Frog Social – Lab Portal</title>
     <style>
       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
-      
       header { background: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
       header h1 { margin: 0; font-size: 18px; font-weight: bold; }
       .tos-link { color: #bdc3c7; font-size: 12px; text-decoration: none; cursor: pointer; }
-
       .container { display: flex; flex: 1; overflow: hidden; }
-      
-      /* SIDEBAR */
       .sidebar { width: 300px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
-      
       .action-buttons { padding: 15px; display: flex; gap: 10px; flex-direction: column; border-bottom: 1px solid #eee; }
-      
-      /* TWO DISTINCT BUTTONS */
       .btn-issue { padding: 12px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; text-align: left; display: flex; align-items: center; gap: 10px; }
       .btn-issue:hover { background: #c0392b; }
-      
       .btn-grade { padding: 12px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; text-align: left; display: flex; align-items: center; gap: 10px; }
       .btn-grade:hover { background: #219150; }
-
       .feed-list { flex: 1; overflow-y: auto; }
       .feed-item { padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; gap: 10px; }
       .feed-item:hover { background: #eef2f5; }
       .feed-icon { font-size: 20px; }
       .feed-text { overflow: hidden; }
-
-      /* MAIN */
       .main { flex: 1; display: flex; flex-direction: column; background: #fff; }
       .messages-area { flex: 1; overflow-y: auto; padding: 20px; background: #f0f2f5; }
-      
       .msg { max-width: 80%; margin-bottom: 15px; padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
       .msg.user { background: #007bff; color: white; margin-left: auto; }
       .msg.ai { background: #fff; border: 1px solid #ddd; }
       .msg.system { background: #ffeaa7; color: #d35400; font-size: 12px; text-align: center; margin: 0 auto 10px auto; width: fit-content; border: 1px solid #e1b12c; }
-
       .film-strip { display: flex; gap: 5px; margin-top: 8px; overflow-x: auto; }
       .film-strip img { height: 60px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.5); }
-
-      /* REPORT */
       .report-card { background: #fff; border: 1px solid #e1e4e8; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
       .report-header { background: #f6f8fa; padding: 10px 15px; border-bottom: 1px solid #e1e4e8; font-weight: bold; color: #24292e; font-size: 13px; }
       .report-body { padding: 15px; }
       .warning-box { background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; border: 1px solid #ffeeba; }
-
-      /* INPUT */
       .input-wrapper { background: #fff; border-top: 1px solid #ddd; padding: 20px; }
       .input-row { display: flex; gap: 10px; align-items: center; }
       input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
       button.send { background: #007bff; color: white; border: none; padding: 10px 25px; border-radius: 20px; font-weight: bold; cursor: pointer; }
-      
       #videoProcessor { display: none; }
     </style>
   </head>
@@ -88,7 +72,6 @@ const FROG_DEMO_HTML = `<!doctype html>
       <h1>🐸 Frog Social: Lab Portal</h1>
       <a href="https://xenopuswelfare.org" target="_blank" class="tos-link">Terms of Service</a>
     </header>
-    
     <div class="container">
       <div class="sidebar">
         <div class="action-buttons">
@@ -102,10 +85,8 @@ const FROG_DEMO_HTML = `<!doctype html>
         <div style="padding: 10px; font-size: 11px; color: #999; font-weight: bold; background: #f8f9fa;">RECENT ACTIVITY</div>
         <div id="feedList" class="feed-list">Loading...</div>
       </div>
-
       <div class="main">
         <div id="messages" class="messages-area"></div>
-        
         <div id="aiReport" style="padding: 0 20px; display: none;">
              <div class="report-card">
                 <div class="report-header">🧬 Protocol Analysis</div>
@@ -115,7 +96,6 @@ const FROG_DEMO_HTML = `<!doctype html>
                 </div>
              </div>
         </div>
-
         <div class="input-wrapper">
            <div class="input-row">
                <input type="file" id="fileInput" accept="image/*,video/*" />
@@ -125,56 +105,47 @@ const FROG_DEMO_HTML = `<!doctype html>
         </div>
       </div>
     </div>
-    
     <video id="videoProcessor" muted playsinline></video>
-
     <script>
       let currentThreadId = null;
       let currentMode = 'issue'; 
-
       async function loadFeed() {
-        const res = await fetch("/api/feed");
-        const cases = await res.json();
-        const list = document.getElementById("feedList");
-        list.innerHTML = "";
-        
-        cases.forEach(c => {
-          const div = document.createElement("div");
-          div.className = "feed-item";
-          if(c.thread_id === currentThreadId) div.classList.add("active");
-          
-          let icon = "📄";
-          const lowerSum = (c.summary || "").toLowerCase();
-          if (lowerSum.includes("density") || lowerSum.includes("grade") || lowerSum.includes("feeding")) icon = "🥑";
-          else if (lowerSum.includes("bloat") || lowerSum.includes("red") || lowerSum.includes("lesion")) icon = "🚑";
-          
-          const title = c.summary ? c.summary.substring(0, 35) + "..." : "Untitled Case";
-          div.innerHTML = "<div class='feed-icon'>" + icon + "</div><div class='feed-text'><strong>" + title + "</strong><div style='font-size:11px;color:#999'>" + new Date(c.created_at).toLocaleTimeString() + "</div></div>";
-          div.onclick = () => loadThread(c.thread_id);
-          list.appendChild(div);
-        });
+        try {
+            const res = await fetch("/api/feed");
+            const cases = await res.json();
+            const list = document.getElementById("feedList");
+            list.innerHTML = "";
+            cases.forEach(c => {
+              const div = document.createElement("div");
+              div.className = "feed-item";
+              if(c.thread_id === currentThreadId) div.classList.add("active");
+              let icon = "📄";
+              const lowerSum = (c.summary || "").toLowerCase();
+              if (lowerSum.includes("density") || lowerSum.includes("grade") || lowerSum.includes("feeding")) icon = "🥑";
+              else if (lowerSum.includes("bloat") || lowerSum.includes("red") || lowerSum.includes("lesion")) icon = "🚑";
+              const title = c.summary ? c.summary.substring(0, 35) + "..." : "Untitled Case";
+              div.innerHTML = "<div class='feed-icon'>" + icon + "</div><div class='feed-text'><strong>" + title + "</strong><div style='font-size:11px;color:#999'>" + new Date(c.created_at).toLocaleTimeString() + "</div></div>";
+              div.onclick = () => loadThread(c.thread_id);
+              list.appendChild(div);
+            });
+        } catch (e) { console.error("Feed error", e); }
       }
-
       function loadThread(id) {
         currentThreadId = id;
         document.getElementById("messages").innerHTML = "<div style='text-align:center; color:#999; margin-top:20px'>History loaded...</div>";
         document.getElementById("aiReport").style.display = "none";
         loadFeed(); 
       }
-
       async function startThread(mode) {
         currentMode = mode;
         const res = await fetch("/api/thread", { method: "POST" });
         const data = await res.json();
         currentThreadId = data.threadId;
-        
         const msgs = document.getElementById("messages");
         msgs.innerHTML = "";
         document.getElementById("aiReport").style.display = "none";
-
         const sysDiv = document.createElement("div");
         sysDiv.className = "msg system";
-        
         if (mode === 'grade') {
             sysDiv.innerText = "🥑 WEEKLY AUDIT: Upload a 10s feeding video. We analyze reaction time to detect hidden stress or low density.";
             document.getElementById("textInput").placeholder = "Upload video for your Weekly Grade...";
@@ -185,7 +156,6 @@ const FROG_DEMO_HTML = `<!doctype html>
         msgs.appendChild(sysDiv);
         loadFeed();
       }
-
       function processFile(file) {
         return new Promise(async (resolve, reject) => {
           if (file.type.startsWith('image/')) {
@@ -218,38 +188,31 @@ const FROG_DEMO_HTML = `<!doctype html>
           }
         });
       }
-
       function renderReport(draft) {
-         const reportDiv = document.getElementById("aiReport");
-         const summaryText = document.getElementById("summaryText");
-         const warningsArea = document.getElementById("warningsArea");
-         
-         reportDiv.style.display = "block";
-         summaryText.textContent = draft.summary || "Analyzing...";
-         
-         warningsArea.innerHTML = "";
-         if (draft.extracted && draft.extracted.protocol_violations) {
-             draft.extracted.protocol_violations.forEach(v => {
-                 const w = document.createElement("div");
-                 w.className = "warning-box";
-                 w.innerHTML = "⚠️ <strong>Protocol Alert:</strong> " + v;
-                 warningsArea.appendChild(w);
-             });
-         }
+          const reportDiv = document.getElementById("aiReport");
+          const summaryText = document.getElementById("summaryText");
+          const warningsArea = document.getElementById("warningsArea");
+          reportDiv.style.display = "block";
+          summaryText.textContent = draft.summary || "Analyzing...";
+          warningsArea.innerHTML = "";
+          if (draft.extracted && draft.extracted.protocol_violations) {
+              draft.extracted.protocol_violations.forEach(v => {
+                  const w = document.createElement("div");
+                  w.className = "warning-box";
+                  w.innerHTML = "⚠️ <strong>Protocol Alert:</strong> " + v;
+                  warningsArea.appendChild(w);
+              });
+          }
       }
-
       async function sendMessage() {
         if (!currentThreadId) await startThread('issue');
-        
         const textInput = document.getElementById("textInput");
         const fileInput = document.getElementById("fileInput");
         const msgs = document.getElementById("messages");
         const text = textInput.value;
         const file = fileInput.files[0];
-        
         let visualPayload = null;
         let htmlContent = "<strong>You:</strong> " + (text || "(Media)");
-        
         if (file) {
            const result = await processFile(file);
            if (result.type === 'video_frames') {
@@ -262,21 +225,17 @@ const FROG_DEMO_HTML = `<!doctype html>
               htmlContent += "<br><img src='" + visualPayload + "' style='max-height: 150px; border-radius: 8px; margin-top:5px'>";
            }
         }
-
         const msgDiv = document.createElement("div");
         msgDiv.className = "msg user";
         msgDiv.innerHTML = htmlContent;
         msgs.appendChild(msgDiv);
         msgs.scrollTop = msgs.scrollHeight;
-        
         textInput.value = "";
         fileInput.value = "";
-
         const loadingDiv = document.createElement("div");
         loadingDiv.className = "msg ai";
         loadingDiv.innerText = "Analyzing Stress Indicators..."; 
         msgs.appendChild(loadingDiv);
-        
         try {
           const res = await fetch("/api/thread/" + currentThreadId + "/message", {
             method: "POST",
@@ -291,12 +250,12 @@ const FROG_DEMO_HTML = `<!doctype html>
           loadingDiv.innerText = "Error: " + e.message;
         }
       }
-      
       loadFeed();
     </script>
   </body>
 </html>`;
 
+// 2. UPDATED ROUTES: Logic to handle the /frog-demo map
 app.get("/", (req, res) => res.redirect("/frog-demo"));
 app.get(["/frog-demo", "/frog-demo.html"], (req, res) => res.send(FROG_DEMO_HTML));
 
