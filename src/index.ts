@@ -69,7 +69,7 @@ const FROG_DEMO_HTML = `<!doctype html>
   </head>
   <body>
     <header>
-      <h1>🐸 Frog Social: Lab Portal</h1>
+      <h1>🐸 Frog Social: Assessments</h1>
       <a href="https://xenopuswelfare.org" target="_blank" class="tos-link">Terms of Service</a>
     </header>
     <div class="container">
@@ -147,8 +147,8 @@ const FROG_DEMO_HTML = `<!doctype html>
         const sysDiv = document.createElement("div");
         sysDiv.className = "msg system";
         if (mode === 'grade') {
-            sysDiv.innerText = "🥑 WEEKLY AUDIT: Upload a 10s feeding video. We analyze reaction time to detect hidden stress or low density.";
-            document.getElementById("textInput").placeholder = "Upload video for your Weekly Grade...";
+            sysDiv.innerText = "🥑 SYSTEM AUDIT: Upload a 10s feeding video. We analyze reaction time to detect hidden stress or low density.";
+            document.getElementById("textInput").placeholder = "Upload video for assesment...";
         } else {
             sysDiv.innerText = "🚑 EMERGENCY PROTOCOL: Please describe symptoms (e.g. Red Leg, Bloating) and upload photos.";
             document.getElementById("textInput").placeholder = "Describe the symptoms...";
