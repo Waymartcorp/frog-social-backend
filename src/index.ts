@@ -69,10 +69,19 @@ const FROG_DEMO_HTML = `<!doctype html>
     </style>
   </head>
   <body>
-    <header>
-      <h1>🐸 Frog Social: Assessments</h1>
-      <a href="https://xenopuswelfare.org" target="_blank" class="tos-link">Terms of Service</a>
-    </header>
+    <header style="background: #2c3e50; color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #27ae60;">
+  <div style="display: flex; align-items: center; gap: 10px;">
+    <span style="font-size: 20px;">🐸</span>
+    <h1 style="margin: 0; font-size: 18px; letter-spacing: 0.5px;">FROG SOCIAL <span style="font-weight: normal; opacity: 0.7; font-size: 12px;">| LAB PORTAL</span></h1>
+  </div>
+  
+  <nav style="display: flex; gap: 25px; align-items: center;">
+    <a href="/" style="color: white; text-decoration: none; font-size: 13px; font-weight: 600; border-bottom: 2px solid #27ae60; padding-bottom: 2px;">🏠 Dashboard</a>
+    <a href="/new-case" style="color: #bdc3c7; text-decoration: none; font-size: 13px; transition: 0.3s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#bdc3c7'">📝 New Case</a>
+    <a href="/social" style="color: #bdc3c7; text-decoration: none; font-size: 13px; transition: 0.3s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#bdc3c7'">👥 Social</a>
+    <a href="https://xenopuswelfare.org" target="_blank" style="color: #95a5a6; text-decoration: none; font-size: 11px; margin-left: 10px; border-left: 1px solid #555; padding-left: 15px;">TOS</a>
+  </nav>
+</header>
     <div class="container">
       <div class="sidebar">
         <div class="action-buttons">
