@@ -1,21 +1,9 @@
 {
   "rewrites": [
-    {
-      "source": "/social",
-      "destination": "https://frog-social-backend-1.onrender.com/frog-demo"
-    },
-    {
-      "source": "/social/:path*",
-      "destination": "https://frog-social-backend-1.onrender.com/frog-demo"
-    },
-    {
-      "source": "/describe-problem",
-      "destination": "https://frog-social-backend-1.onrender.com/frog-demo"
-    },
-    {
-      "source": "/describe-problem/:path*",
-      "destination": "https://frog-social-backend-1.onrender.com/frog-demo"
-    }
+    { "source": "/social", "destination": "https://frog-social-backend-1.onrender.com/" },
+    { "source": "/social/:path*", "destination": "https://frog-social-backend-1.onrender.com/" },
+
+    { "source": "/describe-problem", "destination": "https://frog-social-backend-1.onrender.com/" },
+    { "source": "/describe-problem/:path*", "destination": "https://frog-social-backend-1.onrender.com/" }
   ]
 }
-
