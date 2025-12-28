@@ -82,25 +82,38 @@ const FROG_DEMO_HTML = `<!doctype html>
             <button class="btn-grade" onclick="startThread('grade')">
                 <span>🥑 Weekly Feeding & Stress Test</span>
             </button>
-            <div style="margin-top: 10px; padding: 12px; background: #fdfdfd; border: 1px solid #eee; border-radius: 8px;">
-  <h3 style="margin: 0 0 8px 0; font-size: 13px; color: #2c3e50; display: flex; align-items: center; gap: 5px;">
-    🧪 ROBUFFER™ <span style="font-weight: normal; font-size: 10px; color: #7f8c8d;">(100L Base)</span>
-  </h3>
-  
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-    <input 
-      type="number" 
-      id="volInput" 
-      value="100" 
-      style="width: 55px; padding: 3px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; text-align: center;"
-      oninput="
-        const v = this.value || 0;
-        document.getElementById('ca_val').innerText = (v * 0.05).toFixed(2);
-        document.getElementById('mg_val').innerText = (v * 0.025).toFixed(2);
-        document.getElementById('na_val').innerText = (v * 0.035).toFixed(2);
-      "
-    />
-    <span style="font-size: 11px; font-weight: bold; color: #34495e;">Liters</span>
+ <div style="margin-top: 15px; padding: 12px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px;">
+        <h3 style="margin: 0; font-size: 13px; color: #0369a1; display: flex; align-items: center; gap: 5px;">
+          🧪 ROBUFFER™ <span style="font-weight: normal; font-size: 10px; color: #0c4a6e;">(Full GH)</span>
+        </h3>
+        <p style="font-size: 9px; color: #666; margin-bottom: 8px;">Target: 80% Instant Ocean base, then top-off with:</p>
+        
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+          <input 
+            type="number" 
+            id="volInput" 
+            value="100" 
+            style="width: 55px; padding: 3px; border: 1px solid #7dd3fc; border-radius: 4px; font-size: 12px; text-align: center;"
+            oninput="
+              const v = this.value || 0;
+              document.getElementById('k2_val').innerText = (v * 0.09).toFixed(2);
+              document.getElementById('ca_val').innerText = (v * 0.065).toFixed(2);
+              document.getElementById('mg_val').innerText = (v * 0.045).toFixed(2);
+            "
+          />
+          <span style="font-size: 11px; font-weight: bold; color: #34495e;">Liters</span>
+        </div>
+
+        <div style="font-size: 10px; line-height: 1.5; color: #2c3e50; font-family: monospace;">
+          <div style="display: flex; justify-content: space-between;">
+            <span>K2SO4:</span><span style="font-weight: bold; color: #2980b9;"><span id="k2_val">9.00</span>g</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>CaSO4:</span><span style="font-weight: bold; color: #2980b9;"><span id="ca_val">6.50</span>g</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>MgSO4:</span><span style="font-weight: bold; color: #2980b9;"><span id="mg_val">4.50</span>g</span>
+      </div>
   </div>
 
   <div style="font-size: 11px; line-height: 1.5; color: #2c3e50; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
