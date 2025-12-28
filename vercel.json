@@ -1,18 +1,15 @@
 {
   "version": 2,
-  "cleanUrls": true,
-  "rewrites": [
+  "redirects": [
     {
       "source": "/social",
-      "destination": "https://frog-social-backend-1.onrender.com/frog-demo"
+      "destination": "https://frog-social-backend-1.onrender.com/frog-demo",
+      "permanent": false
     },
     {
-      "source": "/describe-problem",
-      "destination": "https://frog-social-backend-1.onrender.com/frog-demo"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/social.html",
+      "destination": "https://frog-social-backend-1.onrender.com/frog-demo",
+      "permanent": false
     }
   ]
 }
