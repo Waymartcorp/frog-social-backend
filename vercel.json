@@ -1,9 +1,24 @@
 {
-  "rewrites": [
-    { "source": "/social", "destination": "https://frog-social-backend-1.onrender.com/" },
-    { "source": "/social/:path*", "destination": "https://frog-social-backend-1.onrender.com/" },
-
-    { "source": "/describe-problem", "destination": "https://frog-social-backend-1.onrender.com/" },
-    { "source": "/describe-problem/:path*", "destination": "https://frog-social-backend-1.onrender.com/" }
+  "redirects": [
+    {
+      "source": "/social",
+      "destination": "https://frog-social-backend-1.onrender.com/",
+      "permanent": false
+    },
+    {
+      "source": "/describe-problem",
+      "destination": "https://frog-social-backend-1.onrender.com/",
+      "permanent": false
+    },
+    {
+      "source": "/social/:path*",
+      "destination": "https://frog-social-backend-1.onrender.com/",
+      "permanent": false
+    },
+    {
+      "source": "/describe-problem/:path*",
+      "destination": "https://frog-social-backend-1.onrender.com/",
+      "permanent": false
+    }
   ]
 }
