@@ -1,17 +1,20 @@
 {
-  "version": 2,
   "rewrites": [
     {
       "source": "/social",
-      "destination": "https://frog-social-backend-1.onrender.com/frog-demo"
+      "destination": "https://frog-social-backend-1.onrender.com/social"
+    },
+    {
+      "source": "/social/:path*",
+      "destination": "https://frog-social-backend-1.onrender.com/social/:path*"
     },
     {
       "source": "/describe-problem",
-      "destination": "https://frog-social-backend-1.onrender.com/frog-demo"
+      "destination": "https://frog-social-backend-1.onrender.com/describe-problem"
     },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/describe-problem/:path*",
+      "destination": "https://frog-social-backend-1.onrender.com/describe-problem/:path*"
     }
   ]
 }
