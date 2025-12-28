@@ -1,3 +1,4 @@
+import { ROBUFFER_RECIPE } from './protocols';
 import OpenAI from "openai";
 
 const openai = new OpenAI({
@@ -71,7 +72,7 @@ export async function generateDraftDelta(
             - Target: GH ~4-10 dGH, KH ~3-8 dKH, pH 7.2-7.6.
 
     2.  **Salts:** Buffering salts alone are insufficient without the Calcium/Magnesium backbone above.
-    3.  **Population Density (Behavioral Check):** * **Standard:** High density is required for health.
+    3.  **Population Density (Behavioral Check):** * **Standard:** Density that promotes some competition is required for health.
         * **The Threshold:** Correct density is achieved ONLY when frogs "react together" and actively compete for food (Frenzy). 
         * **Diagnostic:** If "slow eating", "lazy feeding", or "ignoring food" is detected (via text or video analysis), DIAGNOSE LOW DENSITY/COMPETITION immediately.
     4.  **Vibration/Hum:** Even low-level mechanical hum causes stress (Listen for pump noise in descriptions).
